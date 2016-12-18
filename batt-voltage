@@ -1,0 +1,3 @@
+#!/bin/sh
+. reg
+echo "$((`reg 0x78` * 16 + `reg 0x79`)) * 0.0011" | bc

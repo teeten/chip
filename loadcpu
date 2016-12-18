@@ -1,0 +1,2 @@
+#!/bin/sh
+(find /usr | cpio -o | zip | wc -c) 2>/dev/null

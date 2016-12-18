@@ -1,0 +1,8 @@
+#!/bin/sh
+echo "=="
+date --rfc-3339=seconds -u
+adc-on
+echo "===== VOLTAGE == CURRENT ====="
+echo "ACIN $(acin-voltage)   $(acin-current)"
+echo "VBUS $(vbus-voltage)   $(vbus-current)"
+echo "BATT $(batt-voltage)   $(batt-discharge)"

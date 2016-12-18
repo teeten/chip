@@ -1,0 +1,5 @@
+BEFORE=$(i2cget -y -f 0 0x34 0x82)
+i2cset -y -f 0 0x34 0x82 0xff
+AFTER=$(i2cget -y -f 0 0x34 0x82)
+
+echo BEFORE=$BEFORE AFTER=$AFTER

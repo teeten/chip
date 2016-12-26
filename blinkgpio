@@ -1,0 +1,23 @@
+#!/bin/sh
+
+GPIO=$1
+
+if [ $GPIO -lt 0 ] || [ $GPIO -gt 7 ] ; then
+   echo "bad GPIO \"$GPIO\""
+   exit -1
+fi
+
+BASE=1013
+NUM=$(($GPIO + $BASE))
+
+echo $NUM > /sys/class/gpio/export
+echo out  > /sys/class/gpio/gpio${NUM}/direction
+
+while true
+do
+    echo 1 > /sys/class/gpio/gpio${NUM}/value
+    sleep 1
+    echo 0 > /sys/class/gpio/gpio${NUM}/value
+    sleep 1
+done
+

@@ -1,0 +1,26 @@
+#!/bin/sh
+
+GPIO=$1
+BASE=1013
+
+if [ $GPIO -lt 0 ] || [ $GPIO -gt 7 ] ; then
+   echo "bad GPIO \"$GPIO\""
+   exit -1
+fi
+
+if [ "$2" == "up" ] ; then
+    LEVEL=1
+elif [ "$2" == "down" ] ; then
+    LEVEL=0
+else
+    echo "second arg must be 'up' or 'down'"
+    exit -2
+fi
+
+NUM=$(($GPIO + $BASE))
+
+echo $NUM > /sys/class/gpio/export
+echo out  > /sys/class/gpio/gpio${NUM}/direction
+echo $LEVEL > /sys/class/gpio/gpio${NUM}/value
+
+

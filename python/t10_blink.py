@@ -1,3 +1,4 @@
+#!/usr/bin/python
 
 import time, signal, sys
 import CHIP_IO.GPIO as GPIO
@@ -17,5 +18,4 @@ while 1:
     time.sleep(0.1)
     GPIO.output("XIO-P1", GPIO.LOW)
     time.sleep(0.1)
-
 

@@ -62,23 +62,9 @@ def has_acin(pmu):
 def has_batt(pmu):
     return True if power_mode(pmu) & (1 << 5) else False
 
-def batt_direction(pmu):
-    return True if power_status(pmu) & (1 << 6) else False
-
-def batt_charging(pmu):
-    return True if power_mode(pmu) & (1 << 6) else False
-
 def batt_voltage(pmu): # 12-bits
     w = pmu.read_word_data(AXP209_ADDR, 0x78)
     return (((w & 0x00ff) << 4) | (w & 0x0f00) >> 8) * 0.0011
-
-def batt_discharge(pmu): # 13-bits
-    w = pmu.read_word_data(AXP209_ADDR, 0x7c)
-    return (((w & 0x00ff) << 5) | (w & 0x1f00) >> 8) * 0.0005
-
-def batt_charge(pmu): # 12-bits
-    w = pmu.read_word_data(AXP209_ADDR, 0x7a)
-    return (((w & 0x00ff) << 4) | (w & 0x0f00) >> 8) * 0.0005
 
 def batt_current(pmu):
     if not ison(power_status(pmu), PWR_BATT_FULL):
@@ -123,8 +109,6 @@ adc_disable(axp209, ADC_VBUS_C | ADC_VBUS_V)
 show_status(adc_status(axp209))
 
 print("Battery voltage   = %1.4f" % batt_voltage(axp209))
-print("Battery discharge = %1.4f" % batt_discharge(axp209))
-print("Battery charge    = %1.4f" % batt_charge(axp209))
 print("Battery gauge     = %d%%"  % batt_gauge(axp209))
 print("Battery current   = %1.4f" % batt_current(axp209))
 

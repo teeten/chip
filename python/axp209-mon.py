@@ -14,11 +14,21 @@ def cleanup(sig, ctx):
 
 AXP209_ADDR = 0x34
 
-def power_status(pmu):
-    return pmu.read_byte_data(AXP209_ADDR, 0x00)
+# === generic === #
 
-def power_mode(pmu):
-    return pmu.read_byte_data(AXP209_ADDR, 0x01)
+def ison(status,flags):
+    return True if status & flags else False
+
+# === power status === #
+
+PWR_HAS_ACIN  = 1 << 7
+PWR_HAS_VBUS  = 1 << 5
+PWR_HAS_BATT  = 1 << 13
+PWR_BATT_FULL = 1 << 14
+PWR_BATT_CHRG = 1 << 2
+
+def power_status(pmu):
+    return pmu.read_word_data(AXP209_ADDR, 0x00)
 
 # === ADC === #
 
@@ -33,11 +43,13 @@ ADC_TEMP   = 1 << 15
 def adc_status(pmu):
     return pmu.read_word_data(AXP209_ADDR, 0x82)
 
-def ison(status,flags):
-    return True if status & flags else False
-
 def adc_enable(pmu, flags):
     st = (adc_status(pmu) | flags) & 0xff
+    pmu.write_byte_data(AXP209_ADDR, 0x82, st)
+    return st
+
+def adc_disable(pmu, flags):
+    st = (adc_status(pmu) & ~flags) & 0xff
     pmu.write_byte_data(AXP209_ADDR, 0x82, st)
     return st
 
@@ -50,6 +62,9 @@ def has_acin(pmu):
 def has_batt(pmu):
     return True if power_mode(pmu) & (1 << 5) else False
 
+def batt_direction(pmu):
+    return True if power_status(pmu) & (1 << 6) else False
+
 def batt_charging(pmu):
     return True if power_mode(pmu) & (1 << 6) else False
 
@@ -61,6 +76,32 @@ def batt_discharge(pmu): # 13-bits
     w = pmu.read_word_data(AXP209_ADDR, 0x7c)
     return (((w & 0x00ff) << 5) | (w & 0x1f00) >> 8) * 0.0005
 
+def batt_charge(pmu): # 12-bits
+    w = pmu.read_word_data(AXP209_ADDR, 0x7a)
+    return (((w & 0x00ff) << 4) | (w & 0x0f00) >> 8) * 0.0005
+
+def batt_current(pmu):
+    if not ison(power_status(pmu), PWR_BATT_FULL):
+        w = pmu.read_word_data(AXP209_ADDR, 0x7c)
+        return (((w & 0x00ff) << 5) | (w & 0x1f00) >> 8) * 0.0005
+    else:
+        w = pmu.read_word_data(AXP209_ADDR, 0x7a)
+        return (((w & 0x00ff) << 4) | (w & 0x0f00) >> 8) * -0.0005
+
+def batt_gauge(pmu):
+    return pmu.read_byte_data(AXP209_ADDR, 0xb9)
+
+# === display === #
+
+def show_status(status):
+    print("ADC status=%s BV=%s BC=%s AV=%s AC=%s VV=%s VC=%s" % (bin(status),
+        ison(status, ADC_BATT_V),
+        ison(status, ADC_BATT_C),
+        ison(status, ADC_ACIN_V),
+        ison(status, ADC_ACIN_C),
+        ison(status, ADC_VBUS_V),
+        ison(status, ADC_VBUS_C)))
+
 ##########
 ## MAIN ##
 ##########
@@ -69,30 +110,23 @@ signal.signal(signal.SIGINT, cleanup)
 
 axp209 = smbus.SMBus(0, dangerous=True)
 
-st = adc_status(axp209)
+pwr = power_status(axp209)
 
-print("ADC status=%s BV=%s BC=%s AV=%s AC=%s VV=%s VC=%s" % (bin(st),
-    ison(st, ADC_BATT_V),
-    ison(st, ADC_BATT_C),
-    ison(st, ADC_ACIN_V),
-    ison(st, ADC_ACIN_C),
-    ison(st, ADC_VBUS_V),
-    ison(st, ADC_VBUS_C)))
+print("POWER_STATUS = %s" % bin(pwr))
+print("\tVBUS=%s" % ison(pwr, PWR_HAS_VBUS))
+print("\tACIN=%s" % ison(pwr, PWR_HAS_ACIN))
+print("\tBATT=%s FULL=%s CHARGING=%s\n" % (ison(pwr, PWR_HAS_BATT), not ison(pwr, PWR_BATT_FULL), ison(pwr, PWR_HAS_BATT)))
 
+show_status(adc_status(axp209))
 adc_enable(axp209, ADC_BATT_C)
-
-print("ADC status=%s" % bin(adc_status(axp209)))
-
-print("POWER_STATUS = %s" % bin(power_status(axp209)))
-print("\tVBUS=%s" % has_vbus(axp209))
-print("\tACIN=%s" % has_acin(axp209))
-
-print("POWER_MODE   = %s" % bin(power_mode(axp209)))
-print("\tBATT=%s" % has_batt(axp209))
-print("\tCHRG=%s" % batt_charging(axp209))
+adc_disable(axp209, ADC_VBUS_C | ADC_VBUS_V)
+show_status(adc_status(axp209))
 
 print("Battery voltage   = %1.4f" % batt_voltage(axp209))
 print("Battery discharge = %1.4f" % batt_discharge(axp209))
+print("Battery charge    = %1.4f" % batt_charge(axp209))
+print("Battery gauge     = %d%%"  % batt_gauge(axp209))
+print("Battery current   = %1.4f" % batt_current(axp209))
 
 axp209.close()
 sys.exit(0)

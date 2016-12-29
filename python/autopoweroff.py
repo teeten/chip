@@ -1,41 +1,71 @@
 #!/usr/bin/python
 
-import time, signal, sys, syslog, os
+#############
+## IMPORTS ##
+#############
+
+import time, signal, sys, syslog, os, daemon, lockfile
 import Adafruit_PureIO.smbus as smbus
-import t10_axp209 as pmu
+
+###############
+## CONSTANTS ##
+###############
+
+DAEMONNAME    = "autopoweroffd"
+AXP209_ADDR   = 0x34
+AXP209_STATUS = 0x00
+HAS_ACIN      = 1 << 7
+
+TIMEOUT = 20 # grace period before power off, in seconds
+
+###############
+## FUNCTIONS ##
+###############
 
 def bye(sig, ctx):
     syslog.syslog("signal %d caught, terminating ..." % sig)
-    axp209.close()
+    i2cbus.close()
     sys.exit(0)
 
-syslog.openlog("autopoweroffd", syslog.LOG_PID, syslog.LOG_DAEMON)
+def run():
+    syslog.syslog("run")
+    countdown = TIMEOUT
+    period    = 5
+    while 1:
+        if (i2cbus.read_word_data(AXP209_ADDR, AXP209_STATUS) & HAS_ACIN): # ACIN power is up
+            if (countdown != TIMEOUT):
+                syslog.syslog("power is back on (%ds from timeout)" % countdown)
+                period = 5
+                countdown = TIMEOUT
+        else: # ACIN power is down
+            if (countdown == TIMEOUT):
+                syslog.syslog("power out detected")
+                period = 1
+            countdown -= 1
+        if (countdown == 0):
+            syslog.syslog("timeout reached, shutting down ...")
+            i2cbus.close()
+            os.system("init 0")
+        time.sleep(period)
+
+##########
+## MAIN ##
+##########
+
+syslog.openlog(DAEMONNAME, syslog.LOG_PID, syslog.LOG_DAEMON)
 syslog.syslog("init")
 
-signal.signal(signal.SIGINT, bye)
-signal.signal(signal.SIGTERM, bye)
+i2cbus = smbus.SMBus(0)
+syslog.syslog("device=%s" % i2cbus._device)
 
-MAXCOUNT  = 20
-countdown = MAXCOUNT
-period    = 5
-axp209    = smbus.SMBus(0)
+context = daemon.DaemonContext(
+    signal_map        = { signal.SIGINT:bye, signal.SIGTERM:bye, signal.SIGHUP:bye },
+    working_directory = "/var/local",
+    umask             = 0o002,
+    pidfile           = lockfile.FileLock("/var/run/%s.pid" % DAEMONNAME),
+    files_preserve    = [i2cbus._device]
+)
 
-syslog.syslog("start")
+with context:
+    run()
 
-while 1:
-    power_out = not pmu.ison(pmu.power_status(axp209), pmu.HAS_ACIN)
-    if (countdown == 0):
-        syslog.syslog("timeout reached, shutting down ...")
-        axp209.close()
-        os.system("init 0")
-    if (power_out):
-        if (countdown == MAXCOUNT):
-            syslog.syslog("power out detected")
-            period = 1
-        countdown -= 1
-    else:
-        if (countdown != MAXCOUNT):
-            syslog.syslog("power is back on (%ds from timeout)" % countdown)
-            period = 5
-            countdown = MAXCOUNT
-    time.sleep(period)

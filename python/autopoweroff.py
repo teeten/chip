@@ -4,10 +4,10 @@
 ## IMPORTS ##
 #############
 
-import time, signal, sys, syslog, os, lockfile.pidlockfile
+import time, signal, sys, syslog, os
 import Adafruit_PureIO.smbus as smbus
 
-#import daemon, systemd.daemon
+#import daemon, systemd.daemon, lockfile.pidlockfile
 
 ###############
 ## CONSTANTS ##
@@ -67,8 +67,6 @@ syslog.syslog("init")
 i2cbus = smbus.SMBus(0)
 syslog.syslog("device=%s" % i2cbus._device)
 
-pidfile = lockfile.pidlockfile.PIDLockFile("/run/%s.pid" % DAEMONNAME)
-
 run()
 
 """
@@ -76,10 +74,11 @@ context = daemon.DaemonContext(
     signal_map        = { signal.SIGINT:bye, signal.SIGTERM:bye, signal.SIGHUP:bye },
     working_directory = "/var/local",
     umask             = 0o002,
-    pidfile           = pidfile,
+    pidfile           = lockfile.pidlockfile.PIDLockFile("/run/%s.pid" % DAEMONNAME),
     files_preserve    = [i2cbus._device]
 )
 
 with context:
     run()
 """
+

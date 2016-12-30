@@ -8,3 +8,4 @@ ExecStart=/usr/local/sbin/autopoweroffd
 
 [Install]
 WantedBy=multi-user.target
+

@@ -1,0 +1,10 @@
+[Unit]
+Description=CHIP graceful shutdown when ACIN and VBUS power is down
+
+[Service]
+Type=forking
+PIDFile=/run/autopoweroffd.pid
+ExecStart=/usr/local/sbin/autopoweroffd
+
+[Install]
+WantedBy=multi-user.target

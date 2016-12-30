@@ -4,7 +4,8 @@
 ## IMPORTS ##
 #############
 
-import time, signal, sys, syslog, os, daemon, lockfile
+import time, signal, sys, syslog, os
+import daemon, lockfile.pidlockfile, systemd.daemon
 import Adafruit_PureIO.smbus as smbus
 
 ###############
@@ -15,6 +16,7 @@ DAEMONNAME    = "autopoweroffd"
 AXP209_ADDR   = 0x34
 AXP209_STATUS = 0x00
 HAS_ACIN      = 1 << 7
+HAS_VBUS      = 1 << 5
 
 TIMEOUT = 20 # grace period before power off, in seconds
 
@@ -31,8 +33,9 @@ def run():
     syslog.syslog("run")
     countdown = TIMEOUT
     period    = 5
+    systemd.daemon.notify('READY=1')
     while 1:
-        if (i2cbus.read_word_data(AXP209_ADDR, AXP209_STATUS) & HAS_ACIN): # ACIN power is up
+        if (i2cbus.read_word_data(AXP209_ADDR, AXP209_STATUS) & (HAS_ACIN | HAS_VBUS)): # ACIN or VBUS power is up
             if (countdown != TIMEOUT):
                 syslog.syslog("power is back on (%ds from timeout)" % countdown)
                 period = 5
@@ -62,7 +65,7 @@ context = daemon.DaemonContext(
     signal_map        = { signal.SIGINT:bye, signal.SIGTERM:bye, signal.SIGHUP:bye },
     working_directory = "/var/local",
     umask             = 0o002,
-    pidfile           = lockfile.FileLock("/var/run/%s.pid" % DAEMONNAME),
+    pidfile           = lockfile.pidlockfile.PIDLockFile("/run/%s.pid" % DAEMONNAME),
     files_preserve    = [i2cbus._device]
 )
 

@@ -1,5 +1,6 @@
 [Unit]
 Description=CHIP graceful shutdown when ACIN and VBUS power is down
+After=multi-user.target
 
 [Service]
 Type=forking

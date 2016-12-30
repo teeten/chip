@@ -5,8 +5,9 @@
 #############
 
 import time, signal, sys, syslog, os
-import daemon, lockfile.pidlockfile, systemd.daemon
 import Adafruit_PureIO.smbus as smbus
+
+import daemon, lockfile.pidlockfile, systemd.daemon
 
 ###############
 ## CONSTANTS ##
@@ -33,7 +34,8 @@ def run():
     syslog.syslog("run")
     countdown = TIMEOUT
     period    = 5
-    systemd.daemon.notify('READY=1')
+    systemd.daemon.notify("READY=1")
+    syslog.syslog("ready")
     while 1:
         if (i2cbus.read_word_data(AXP209_ADDR, AXP209_STATUS) & (HAS_ACIN | HAS_VBUS)): # ACIN or VBUS power is up
             if (countdown != TIMEOUT):

@@ -4,10 +4,10 @@
 ## IMPORTS ##
 #############
 
-import time, signal, sys, syslog, os
+import time, signal, sys, syslog, os, lockfile.pidlockfile
 import Adafruit_PureIO.smbus as smbus
 
-import daemon, lockfile.pidlockfile, systemd.daemon
+#import daemon, systemd.daemon
 
 ###############
 ## CONSTANTS ##
@@ -34,8 +34,9 @@ def run():
     syslog.syslog("run")
     countdown = TIMEOUT
     period    = 5
-    systemd.daemon.notify("READY=1")
-    syslog.syslog("ready")
+
+#    systemd.daemon.notify("READY=1")
+
     while 1:
         if (i2cbus.read_word_data(AXP209_ADDR, AXP209_STATUS) & (HAS_ACIN | HAS_VBUS)): # ACIN or VBUS power is up
             if (countdown != TIMEOUT):
@@ -57,20 +58,28 @@ def run():
 ## MAIN ##
 ##########
 
+signal.signal(signal.SIGINT, bye)
+signal.signal(signal.SIGTERM, bye)
+
 syslog.openlog(DAEMONNAME, syslog.LOG_PID, syslog.LOG_DAEMON)
 syslog.syslog("init")
 
 i2cbus = smbus.SMBus(0)
 syslog.syslog("device=%s" % i2cbus._device)
 
+pidfile = lockfile.pidlockfile.PIDLockFile("/run/%s.pid" % DAEMONNAME)
+
+run()
+
+"""
 context = daemon.DaemonContext(
     signal_map        = { signal.SIGINT:bye, signal.SIGTERM:bye, signal.SIGHUP:bye },
     working_directory = "/var/local",
     umask             = 0o002,
-    pidfile           = lockfile.pidlockfile.PIDLockFile("/run/%s.pid" % DAEMONNAME),
+    pidfile           = pidfile,
     files_preserve    = [i2cbus._device]
 )
 
 with context:
     run()
-
+"""
